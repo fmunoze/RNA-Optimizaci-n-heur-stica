@@ -1,20 +1,5 @@
-# Optimización y cálculo numérico
 numpy
-scipy=
+scipy
 pymoo
-
-# Visualización
-matplotlib
-plotly
-imagei
-kaleido
-
-# Procesamiento de datos y utilidades
-pandas
 tqdm
-
-# Visualización web
-streamlit
-
-# Exportación y generación de GIFs
 Pillow
