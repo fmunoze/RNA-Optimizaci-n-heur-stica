@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5;
+        }
+        .container {
+            width: 800px;
+            height: 600px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <svg id="visualization" width="800" height="600" viewBox="-150 -150 300 300">
+            <defs>
+                <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+                    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="rgba(0,0,0,0.1)" stroke-width="0.5"/>
+                </pattern>
+            </defs>
+            <rect x="-150" y="-150" width="300" height="300" fill="url(#grid)"/>
+            <line x1="-150" y1="0" x2="150" y2="0" stroke="#666" stroke-width="0.5"/>
+            <line x1="0" y1="-150" x2="0" y2="150" stroke="#666" stroke-width="0.5"/>
+        </svg>
+    </div>
+
+    <script>
+        function objectiveFunction(x, y) {
+            return Math.sin(x) * Math.cos(y) * (x*x + y*y) + 
+                   2*Math.sin(2*x) + 2*Math.cos(2*y) + 
+                   0.5*(x*x + y*y);
+        }
+
+        function getColor(value) {
+            const normalizedValue = (value + 10) / 20;
+            if (normalizedValue < 0.3) {
+                return `hsl(240, 90%, ${Math.max(15, normalizedValue * 100)}%)`;
+            } else if (normalizedValue < 0.6) {
+                return `hsl(${240 - (normalizedValue-0.3)*480}, 85%, ${40 + normalizedValue * 30}%)`;
+            } else {
+                return `hsl(${120 - (normalizedValue-0.6)*240}, 80%, ${60 + normalizedValue * 25}%)`;
+            }
+        }
+
+        function generateContourData() {
+            const data = [];
+            for (let x = -3; x <= 3; x += 0.1) {
+                for (let y = -3; y <= 3; y += 0.1) {
+                    const z = objectiveFunction(x, y);
+                    data.push({ x, y, z });
+                }
+            }
+            return data;
+        }
+
+        function generateGradientPath() {
+            const path = [];
+            let x = 0, y = 0, vx = 0, vy = 0;
+            const lr = 0.03, momentum = 0.6;
+            
+            for (let i = 0; i < 200; i++) {
+                path.push({ x, y });
+                const h = 0.0001;
+                const dx = (objectiveFunction(x + h, y) - objectiveFunction(x - h, y)) / (2 * h);
+                const dy = (objectiveFunction(x, y + h) - objectiveFunction(x, y - h)) / (2 * h);
+                vx = momentum * vx - lr * dx;
+                vy = momentum * vy - lr * dy;
+                x += vx;
+                y += vy;
+                if (i % 15 === 0) {
+                    x += (Math.random() - 0.5) * 0.1;
+                    y += (Math.random() - 0.5) * 0.1;
+                }
+            }
+            return path;
+        }
+
+        function generateHeuristicPath() {
+            const path = [];
+            let bestX = 0, bestY = 0;
+            let bestValue = objectiveFunction(bestX, bestY);
+            let temp = 3;
+            const popSize = 5;
+            const population = Array(popSize).fill().map(() => ({ x: 0, y: 0 }));
+            
+            for (let i = 0; i < 200; i++) {
+                path.push({ x: bestX, y: bestY });
+                
+                // Generate and evaluate population
+                population.forEach(individual => {
+                    const radius = 0.3 * Math.exp(-i/150);
+                    const angle = Math.random() * 2 * Math.PI;
+                    individual.x = bestX + radius * Math.cos(angle) * (1 + Math.random());
+                    individual.y = bestY + radius * Math.sin(angle) * (1 + Math.random());
+                    individual.value = objectiveFunction(individual.x, individual.y);
+                });
+
+                // Sort by fitness
+                population.sort((a, b) => a.value - b.value);
+
+                // Update best solution with adaptive acceptance
+                const bestCandidate = population[0];
+                const probabilityAccept = Math.exp((bestValue - bestCandidate.value) / temp);
+                
+                if (bestCandidate.value < bestValue || Math.random() < probabilityAccept) {
+                    bestX = bestX * 0.7 + bestCandidate.x * 0.3;
+                    bestY = bestY * 0.7 + bestCandidate.y * 0.3;
+                    bestValue = objectiveFunction(bestX, bestY);
+                }
+
+                // Adaptive temperature
+                if (i % 20 === 0) {
+                    const improvement = Math.abs(bestValue - objectiveFunction(path[Math.max(0, path.length-20)].x, path[Math.max(0, path.length-20)].y));
+                    if (improvement < 0.01) {
+                        temp *= 1.2;  // Increase temperature if stuck
+                    } else {
+                        temp *= 0.95;  // Otherwise cool down
+                    }
+                }
+            }
+            return path;
+        }
+
+        const svg = document.getElementById('visualization');
+
+        // Dibujar contornos
+        const contourData = generateContourData();
+        contourData.forEach(point => {
+            const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            circle.setAttribute("cx", point.x * 80);
+            circle.setAttribute("cy", point.y * 80);
+            circle.setAttribute("r", "2");
+            circle.setAttribute("fill", getColor(objectiveFunction(point.x, point.y)));
+            circle.setAttribute("opacity", "0.9");
+            svg.appendChild(circle);
+        });
+
+        // Generar paths
+        const gradientPath = generateGradientPath();
+        const heuristicPath = generateHeuristicPath();
+
+        // Crear elementos para los paths
+        const gradientPathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        gradientPathElement.setAttribute("stroke", "#ff3366");
+        gradientPathElement.setAttribute("stroke-width", "2");
+        gradientPathElement.setAttribute("fill", "none");
+        gradientPathElement.setAttribute("filter", "drop-shadow(0 0 2px rgba(255,51,102,0.8))");
+
+        const heuristicPathElement = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        heuristicPathElement.setAttribute("stroke", "#33cc66");
+        heuristicPathElement.setAttribute("stroke-width", "2");
+        heuristicPathElement.setAttribute("fill", "none");
+        heuristicPathElement.setAttribute("filter", "drop-shadow(0 0 2px rgba(51,204,102,0.8))");
+
+        // Crear marcadores de posición
+        const gradientMarker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        gradientMarker.setAttribute("r", "5");
+        gradientMarker.setAttribute("fill", "#ff3366");
+        gradientMarker.setAttribute("stroke", "white");
+        gradientMarker.setAttribute("stroke-width", "1.5");
+        gradientMarker.setAttribute("filter", "drop-shadow(0 0 3px rgba(255,51,102,1))");
+
+        const heuristicMarker = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        heuristicMarker.setAttribute("r", "5");
+        heuristicMarker.setAttribute("fill", "#33cc66");
+        heuristicMarker.setAttribute("stroke", "white");
+        heuristicMarker.setAttribute("stroke-width", "1.5");
+        heuristicMarker.setAttribute("filter", "drop-shadow(0 0 3px rgba(51,204,102,1))");
+
+        svg.appendChild(gradientPathElement);
+        svg.appendChild(heuristicPathElement);
+        svg.appendChild(gradientMarker);
+        svg.appendChild(heuristicMarker);
+
+        // Punto inicial
+        const startPoint = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        startPoint.setAttribute("cx", "0");
+        startPoint.setAttribute("cy", "0");
+        startPoint.setAttribute("r", "4");
+        startPoint.setAttribute("fill", "#666");
+        startPoint.setAttribute("stroke", "white");
+        startPoint.setAttribute("stroke-width", "1");
+        startPoint.setAttribute("opacity", "0.7");
+        svg.appendChild(startPoint);
+
+        // Animación
+        let currentStep = 0;
+        function animate() {
+            // Actualizar paths
+            gradientPathElement.setAttribute("d", gradientPath.slice(0, currentStep).map((p, i) => 
+                (i === 0 ? 'M' : 'L') + `${p.x * 80},${p.y * 80}`
+            ).join(' '));
+            
+            heuristicPathElement.setAttribute("d", heuristicPath.slice(0, currentStep).map((p, i) => 
+                (i === 0 ? 'M' : 'L') + `${p.x * 80},${p.y * 80}`
+            ).join(' '));
+
+            // Actualizar marcadores
+            if (currentStep > 0) {
+                gradientMarker.setAttribute("cx", gradientPath[currentStep - 1].x * 80);
+                gradientMarker.setAttribute("cy", gradientPath[currentStep - 1].y * 80);
+                heuristicMarker.setAttribute("cx", heuristicPath[currentStep - 1].x * 80);
+                heuristicMarker.setAttribute("cy", heuristicPath[currentStep - 1].y * 80);
+            }
+
+            currentStep = (currentStep + 1) % 80;
+            setTimeout(animate, 1000 /20); // 15 FPS
+        }
+
+        animate();
+    </script>
+</body>
+</html>
