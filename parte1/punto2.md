@@ -25,8 +25,8 @@ La función de Rastrigin ejemplifica un problema de optimización multimodal:
 
 f(x,y) = 20 + x² + y² - 10(cos(2πx) + cos(2πy))
 ```python
-def  rastrigin_3d(x):
-	return  30  + np.sum(x**2) -  10*np.sum(np.cos(2*np.pi*x))
+    def rastrigin_2d(x, y):
+    return 20 + x**2 + y**2 - 10*(np.cos(2*np.pi*x) + np.cos(2*np.pi*y))
 ```
 Caracteristicas:
 - Una estructura modular con periodicidad 2π en todas las dimensiones
