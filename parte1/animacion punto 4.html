@@ -214,8 +214,8 @@
                 heuristicMarker.setAttribute("cy", heuristicPath[currentStep - 1].y * 80);
             }
 
-            currentStep = (currentStep + 1) % 80;
-            setTimeout(animate, 1000 /20); // 15 FPS
+            currentStep = (currentStep + 1) % 25;
+            setTimeout(animate, 1000 /10); // 15 FPS
         }
 
         animate();
